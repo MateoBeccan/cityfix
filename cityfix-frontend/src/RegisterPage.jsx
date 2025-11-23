@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import api from './axios';
 import Button from './Button';
 import FormInput from './FormInput';
+import logoCityFix from './assets/logo_cityfix.png';
+
 
 const RegisterPage = () => {
   const [formData, setFormData] = useState({
@@ -70,9 +72,14 @@ const RegisterPage = () => {
       <div className="max-w-md w-full">
         <div className="bg-white rounded-xl shadow-sm p-6">
           <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-white text-2xl">🏛️</span>
+            <div className="w-20 h-20 mx-auto mb-4">
+              <img
+                src={logoCityFix}
+                alt="CityFix Logo"
+                className="w-full h-full object-contain"
+              />
             </div>
+
             <h1 className="text-2xl font-semibold text-gray-900">Crear Cuenta</h1>
             <p className="text-gray-600 mt-2">Únete a CityFix</p>
           </div>

@@ -3,24 +3,32 @@ import { useAuth } from "./AuthContext";
 import { ToastProvider } from "./ToastProvider";
 import Layout from "./Layout";
 
+// Páginas públicas
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./LoginPage";
 import RegisterPage from "./RegisterPage";
+import Feed from "./pages/Feed";
 
+// Dashboards
 import DashboardCitizen from "./DashboardCitizen";
 import DashboardOperator from "./DashboardOperator";
 import DashboardAdmin from "./DashboardAdmin";
 
+// Admin
 import AdminUsers from "./AdminUsers";
 import AdminCategories from "./AdminCategories";
 import AdminStatuses from "./AdminStatuses";
 import AdminClaims from "./AdminClaims";
 
+// Reclamos
 import Claims from "./Claims";
 import NewClaim from "./NewClaim";
-import Feed from "./pages/Feed";
 
+// Perfil
 import ProfileEdit from "./ProfileEdit";
+
+// Notificaciones
+import NotificationsPage from "./pages/NotificationsPage";
 
 function App() {
   const { user, loading } = useAuth();
@@ -52,42 +60,46 @@ function App() {
   return (
     <ToastProvider>
       <Routes>
-        {/* 🌐 PÚBLICAS */}
+        {/* 🌐 RUTAS PÚBLICAS (sin navbar) */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
 
-        {/* 🌇 Rutas con Layout (navbar + contenido) */}
+        {/* 🌇 RUTAS CON NAVBAR (Layout) */}
         <Route element={<Layout />}>
           {/* Feed público */}
           <Route path="/feed" element={<Feed />} />
 
-          {/* 🔒 Rutas privadas */}
+          {/* Notificaciones (requiere user) */}
+          {user && (
+            <Route path="/notifications" element={<NotificationsPage />} />
+          )}
+
+          {/* 🔒 RUTAS PRIVADAS */}
           {user ? (
             <>
-              {/* Dashboard principal */}
+              {/* Dashboard según rol */}
               <Route path="/dashboard" element={getDashboardComponent()} />
 
               {/* Perfil */}
               <Route path="/profile" element={<ProfileEdit />} />
               <Route path="/profile/edit" element={<ProfileEdit />} />
 
-
               {/* Reclamos */}
               <Route path="/claims" element={<Claims />} />
               <Route path="/claims/new" element={<NewClaim />} />
 
-              {/* Panel de administración */}
+              {/* Admin */}
               <Route path="/admin/claims" element={<AdminClaims />} />
               <Route path="/admin/users" element={<AdminUsers />} />
               <Route path="/admin/categories" element={<AdminCategories />} />
               <Route path="/admin/statuses" element={<AdminStatuses />} />
 
-              {/* Si está logueado e intenta ir a "/" → dashboard */}
+              {/* Si está logueado e intenta ir a "/" */}
               <Route path="/" element={<Navigate to="/dashboard" />} />
             </>
           ) : (
-            // 🔒 Si no está logueado → redirigir a login
+            // Si no está logueado → login
             <Route path="*" element={<Navigate to="/login" />} />
           )}
         </Route>

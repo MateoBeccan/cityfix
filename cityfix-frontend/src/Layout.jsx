@@ -5,11 +5,18 @@ import Footer from "./Footer";
 const Layout = () => {
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
-      <Navbar />
-      <main className="flex-grow max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
-        <Outlet />
-      </main>
-      <Footer />
+
+      {/* 🔥 Agrega espacio para navbar fija */}
+      <div className="pt-20">
+        <Navbar />
+
+        <main className="flex-grow max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
+          <Outlet />
+        </main>
+
+        <Footer />
+      </div>
+
     </div>
   );
 };

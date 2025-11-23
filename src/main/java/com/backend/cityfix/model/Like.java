@@ -3,6 +3,8 @@ package com.backend.cityfix.model;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "likes")
 @Getter
@@ -18,18 +20,21 @@ public class Like {
     private Long id;
 
     @ManyToOne
-    @JoinColumn(name = "id_usuario", nullable = false, referencedColumnName = "id_usuario")
+    @JoinColumn(name = "id_usuario", nullable = false)
     private User usuario;
 
     @ManyToOne
-    @JoinColumn(name = "id_reclamo", nullable = false, referencedColumnName = "id_reclamo")
+    @JoinColumn(name = "id_reclamo", nullable = false)
     private Claim reclamo;
 
     @Column(name = "fecha_creacion", nullable = false, updatable = false)
-    private java.time.LocalDateTime fechaCreacion;
+    @Builder.Default
+    private LocalDateTime fechaCreacion = LocalDateTime.now();
 
     @PrePersist
     protected void onCreate() {
-        this.fechaCreacion = java.time.LocalDateTime.now();
+        if (fechaCreacion == null) {
+            fechaCreacion = LocalDateTime.now();
+        }
     }
 }

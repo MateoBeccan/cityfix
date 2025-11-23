@@ -19,13 +19,13 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem("token"));
   const [loading, setLoading] = useState(true);
 
-  // 🔹 Sincroniza el usuario luego de editar perfil
+  // 🔹 Actualizar datos del usuario (editar perfil)
   const updateUserData = (newData) => {
     setUser(newData);
     localStorage.setItem("user", JSON.stringify(newData));
   };
 
-  // 🔹 Decodificar token y restaurar sesión
+  // 🔹 Restaurar sesión desde token
   useEffect(() => {
     if (token) {
       try {
@@ -39,7 +39,7 @@ export const AuthProvider = ({ children }) => {
         const email = decoded.email || decoded.sub;
 
         const restoredUser = {
-          id: decoded.id || decoded.userId || null, // si tu token lo incluye
+          id: decoded.id || decoded.userId || null,
           email,
           nombre: email.split("@")[0],
           role,
@@ -48,22 +48,24 @@ export const AuthProvider = ({ children }) => {
         setUser(restoredUser);
         localStorage.setItem("user", JSON.stringify(restoredUser));
 
-        // Setear token en axios
         api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+
       } catch (error) {
-        console.error("Error decoding token:", error);
+        console.warn("Error decoding token:", error);
         logout();
       }
     }
+
     setLoading(false);
   }, [token]);
 
-  // 🔹 Iniciar sesión
+  // 🔹 LOGIN actualizado
   const login = async (email, password) => {
     try {
       const res = await api.post("/api/auth/login", { email, password });
       const newToken = res.data.token;
 
+      // Guardar token
       setToken(newToken);
       localStorage.setItem("token", newToken);
 
@@ -89,16 +91,42 @@ export const AuthProvider = ({ children }) => {
       api.defaults.headers.common["Authorization"] = `Bearer ${newToken}`;
 
       return { success: true };
+
     } catch (error) {
-      console.error("Error al iniciar sesión:", error);
+
+      // 🔥 ERROR 401 → credenciales incorrectas, usuario no existe, desactivado, etc.
+      if (error.response?.status === 401) {
+        const backendError = error.response.data?.error?.toLowerCase() || "";
+
+        if (backendError.includes("bad credentials"))
+          return { success: false, error: "invalid_credentials" };
+
+        if (backendError.includes("user not found"))
+          return { success: false, error: "user_not_found" };
+
+        if (backendError.includes("user disabled"))
+          return { success: false, error: "user_disabled" };
+
+        return { success: false, error: "invalid_credentials" };
+      }
+
+      // 🔥 Error genérico de backend
+      if (error.response?.data?.error) {
+        return {
+          success: false,
+          error: error.response.data.error,
+        };
+      }
+
+      // 🔥 Error de red
       return {
         success: false,
-        error: "Credenciales incorrectas o servidor no disponible",
+        error: "network_error",
       };
     }
   };
 
-  // 🔹 Cerrar sesión
+  // 🔹 LOGOUT
   const logout = () => {
     setToken(null);
     setUser(null);
@@ -114,7 +142,7 @@ export const AuthProvider = ({ children }) => {
         token,
         login,
         logout,
-        updateUserData, // 🔥 IMPORTANTE PARA EDITAR PERFIL
+        updateUserData,
         loading,
         isAuthenticated: !!user,
       }}

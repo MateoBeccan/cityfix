@@ -13,16 +13,15 @@ const LoginPage = () => {
   const { user, login } = useAuth();
   const navigate = useNavigate();
 
-  if (user) return <Navigate to="/dashboard" replace />;
-
-  // 🔹 Validación de formato de email
-  const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  // 🔹 Validación de email
+  const isValidEmail = (email) =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
-    // --- Validaciones locales antes del envío ---
+    // — Validaciones locales
     if (!email || !password) {
       setError('Por favor completa todos los campos.');
       return;
@@ -43,21 +42,34 @@ const LoginPage = () => {
 
       if (result.success) {
         navigate('/dashboard');
-      } else {
-        // --- Validaciones basadas en mensajes del backend ---
-        if (result.error?.toLowerCase().includes('bad credentials')) {
-          setError('Contraseña incorrecta. Verifica tus datos.');
-        } else if (result.error?.toLowerCase().includes('user not found')) {
-          setError('Usuario no encontrado. Regístrate para crear una cuenta.');
-        } else if (result.error?.toLowerCase().includes('disabled')) {
-          setError('Tu cuenta está desactivada. Contacta al soporte.');
-        } else {
-          setError(result.error || 'Error al iniciar sesión. Intenta nuevamente.');
-        }
+        return;
       }
+
+      // — Manejo de códigos de error del AuthContext
+      switch (result.error) {
+        case "invalid_credentials":
+          setError("Credenciales incorrectas. Verifica tu correo y contraseña.");
+          break;
+
+        case "user_not_found":
+          setError("El usuario no existe. Puedes registrarte para crear una cuenta.");
+          break;
+
+        case "user_disabled":
+          setError("Tu cuenta está desactivada. Contacta a soporte.");
+          break;
+
+        case "network_error":
+          setError("No se pudo conectar con el servidor. Verifica tu conexión.");
+          break;
+
+        default:
+          setError("Error desconocido al iniciar sesión.");
+      }
+
     } catch (err) {
       console.error(err);
-      setError('Error de conexión con el servidor. Verifica tu red.');
+      setError('Error inesperado al iniciar sesión.');
     } finally {
       setLoading(false);
     }
@@ -67,6 +79,7 @@ const LoginPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full">
         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+
           {/* Encabezado */}
           <div className="text-center p-8 border-b border-gray-100">
             <div className="flex justify-center mb-4">
@@ -111,7 +124,7 @@ const LoginPage = () => {
             </Button>
           </form>
 
-          {/* Pie del formulario */}
+          {/* Pie */}
           <div className="px-8 py-4 bg-gray-50 border-t border-gray-100 text-center">
             <p className="text-sm text-gray-600">
               ¿No tienes cuenta?{' '}

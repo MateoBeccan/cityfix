@@ -23,15 +23,18 @@ public class ClaimService {
     private final CommentRepository commentRepository;
     private final LikeRepository likeRepository;
     private final CategoryRepository categoryRepository;
+    private final NotificationService notificationService;
 
-    // Constructor completo con CategoryRepository incluido
-    public ClaimService(ClaimRepository repository,
-                        UserRepository userRepository,
-                        StatusRepository statusRepository,
-                        ClaimHistoryRepository claimHistoryRepository,
-                        CommentRepository commentRepository,
-                        LikeRepository likeRepository,
-                        CategoryRepository categoryRepository) {
+    public ClaimService(
+            ClaimRepository repository,
+            UserRepository userRepository,
+            StatusRepository statusRepository,
+            ClaimHistoryRepository claimHistoryRepository,
+            CommentRepository commentRepository,
+            LikeRepository likeRepository,
+            CategoryRepository categoryRepository,
+            NotificationService notificationService
+    ) {
         this.repository = repository;
         this.userRepository = userRepository;
         this.statusRepository = statusRepository;
@@ -39,36 +42,31 @@ public class ClaimService {
         this.commentRepository = commentRepository;
         this.likeRepository = likeRepository;
         this.categoryRepository = categoryRepository;
+        this.notificationService = notificationService;
     }
 
-    //  Obtener todos los reclamos (para ADMIN y OPERADOR)
     public List<Claim> getAll() {
         return repository.findAll();
     }
 
-    //  Obtener reclamo por ID
     public Optional<Claim> getById(Long id) {
         return repository.findById(id);
     }
 
-    //  Obtener reclamos de un usuario por su email
     public List<Claim> getByUserEmail(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
         return repository.findByUsuario(user);
     }
 
-    //  Verificar si el reclamo pertenece al usuario autenticado
     public boolean isOwner(Long claimId, String email) {
         return repository.findById(claimId)
                 .map(claim -> claim.getUsuario().getEmail().equals(email))
                 .orElse(false);
     }
 
-    //  Crear reclamo desde DTO (CIUDADANO)
     public Claim createForUser(ClaimRequestDTO dto, String email) {
-        if (dto == null) throw new IllegalArgumentException("Los datos del reclamo no pueden ser nulos");
-        if (email == null || email.trim().isEmpty()) throw new IllegalArgumentException("El email no puede estar vacío");
+        if (dto == null) throw new IllegalArgumentException("Datos inválidos");
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
@@ -76,7 +74,7 @@ public class ClaimService {
         Category category = categoryRepository.findById(dto.getCategoriaId())
                 .orElseThrow(() -> new RuntimeException("Categoría no encontrada"));
 
-        Status pendiente = statusRepository.findByNombre("Pendiente")
+        Status pendiente = statusRepository.findByNombreIgnoreCase("Pendiente")
                 .orElseGet(() -> statusRepository.save(Status.builder().nombre("Pendiente").build()));
 
         Claim claim = Claim.builder()
@@ -92,53 +90,64 @@ public class ClaimService {
         return repository.save(claim);
     }
 
-    //  Actualizar estado por ID
     public Claim updateStatus(Long id, Long statusId) {
         Claim claim = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Reclamo no encontrado"));
+
         Status status = statusRepository.findById(statusId)
                 .orElseThrow(() -> new RuntimeException("Estado no encontrado"));
 
         claim.setEstado(status);
-        return repository.save(claim);
+        Claim updated = repository.save(claim);
+
+        notificationService.notifyClaimStatusChange(updated, status.getNombre());
+
+        return updated;
     }
 
-    //  Actualizar estado por nombre (OPERADOR / ADMIN)
+    /**
+     * 🟢 Método CORREGIDO (el que fallaba)
+     */
     public Claim updateStatusByName(Long id, String statusName, String description, String userEmail) {
-        if (id == null || id <= 0) throw new IllegalArgumentException("ID de reclamo inválido");
-        if (statusName == null || statusName.trim().isEmpty()) throw new IllegalArgumentException("El nombre del estado no puede estar vacío");
-        if (userEmail == null || userEmail.trim().isEmpty()) throw new IllegalArgumentException("El email del usuario no puede estar vacío");
+
+        // NORMALIZAR ENTRADA
+        String normalized = statusName.trim().replaceAll("\\s+", " ");
 
         Claim claim = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Reclamo no encontrado"));
-        Status status = statusRepository.findByNombre(statusName)
-                .orElseThrow(() -> new RuntimeException("Estado no encontrado: " + statusName));
+
+        Status status = statusRepository.findByNombreIgnoreCase(normalized)
+                .orElseThrow(() -> new RuntimeException("Estado no encontrado: " + normalized));
+
         User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
-        if (claim.getEstado() != null && claim.getEstado().getNombre().equals(statusName)) {
-            throw new IllegalArgumentException("El reclamo ya tiene el estado: " + statusName);
-        }
-
+        // Guardar historial
         ClaimHistory history = ClaimHistory.builder()
                 .claim(claim)
                 .status(status)
                 .changedBy(user)
                 .description(description)
                 .build();
+
         claimHistoryRepository.save(history);
 
+        // Actualizar reclamo
         claim.setEstado(status);
-        return repository.save(claim);
+        Claim updated = repository.save(claim);
+
+        notificationService.notifyClaimStatusChange(updated, normalized);
+
+        return updated;
     }
 
-    //  Actualizar reclamo (solo dueño o admin)
+
     public Claim updateClaim(Long id, Claim updatedClaim, String email) {
         Claim claim = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Reclamo no encontrado"));
 
         if (!claim.getUsuario().getEmail().equals(email)) {
-            throw new RuntimeException("No autorizado para modificar este reclamo");
+            throw new RuntimeException("No autorizado");
         }
 
         claim.setTitulo(updatedClaim.getTitulo());
@@ -149,41 +158,25 @@ public class ClaimService {
         return repository.save(claim);
     }
 
-    //  Guardar reclamo directamente
-    public Claim save(Claim claim) {
-        return repository.save(claim);
-    }
-
-    //  Eliminar reclamo por ID
     public void delete(Long id) {
-        if (id == null || id <= 0)
-            throw new IllegalArgumentException("ID de reclamo inválido");
-
         Claim claim = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Reclamo no encontrado"));
 
-        //  Borrar likes
         likeRepository.deleteAll(likeRepository.findByReclamo(claim));
-
-        //  Borrar comentarios
         commentRepository.deleteAll(commentRepository.findByReclamoOrderByCreatedAtDesc(claim));
-
-        //  Borrar historial
         claimHistoryRepository.deleteAll(claimHistoryRepository.findByClaimIdOrderByChangedAtDesc(id));
 
-        //  Finalmente borrar reclamo
         repository.delete(claim);
     }
 
-
-    //  Obtener historial de cambios del reclamo
     public List<ClaimHistory> getClaimHistory(Long claimId) {
         return claimHistoryRepository.findByClaimIdOrderByChangedAtDesc(claimId);
     }
 
-    //  Obtener feed público (con DTO)
     public Page<ClaimDTO> getFeed(int page, int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by("fechaCreacion").descending());
+        Pageable pageable =
+                PageRequest.of(page, size, Sort.by("fechaCreacion").descending());
+
         Page<Claim> claimsPage = repository.findAll(pageable);
 
         return new PageImpl<>(
@@ -193,9 +186,26 @@ public class ClaimService {
         );
     }
 
-    //  Convertir Claim → ClaimDTO
+    public Page<ClaimDTO> getFeed(int page, int size, String userEmail) {
+        Pageable pageable =
+                PageRequest.of(page, size, Sort.by("fechaCreacion").descending());
+
+        Page<Claim> claimsPage = repository.findAll(pageable);
+
+        return new PageImpl<>(
+                claimsPage.stream().map(c -> toDto(c, userEmail)).collect(Collectors.toList()),
+                pageable,
+                claimsPage.getTotalElements()
+        );
+    }
+
     private ClaimDTO toDto(Claim c) {
+        return toDto(c, null);
+    }
+
+    private ClaimDTO toDto(Claim c, String userEmail) {
         ClaimDTO dto = new ClaimDTO();
+
         dto.setId(c.getId());
         dto.setTitulo(c.getTitulo());
         dto.setDescripcion(c.getDescripcion());
@@ -204,39 +214,40 @@ public class ClaimService {
 
         if (c.getFechaCreacion() != null) {
             dto.setFechaCreacion(c.getFechaCreacion().atZone(ZoneId.systemDefault()).toInstant());
-        } else {
-            dto.setFechaCreacion(java.time.Instant.now());
         }
 
         if (c.getUsuario() != null) {
             dto.setUsuarioId(c.getUsuario().getId());
             dto.setUsuarioNombre(c.getUsuario().getNombre());
-        } else {
-            dto.setUsuarioNombre("Usuario desconocido");
         }
 
-        if (c.getCategoria() != null)
-            dto.setCategoria(c.getCategoria().getNombre());
+        if (c.getCategoria() != null) dto.setCategoria(c.getCategoria().getNombre());
+        if (c.getEstado() != null) dto.setEstado(c.getEstado().getNombre());
 
-        if (c.getEstado() != null)
-            dto.setEstado(c.getEstado().getNombre());
-
-        // 🔥 Feed social: contadores reales desde DB
         dto.setLikes(likeRepository.countByReclamo(c));
         dto.setComentarios(commentRepository.countByReclamo(c));
+
+        boolean liked = false;
+        if (userEmail != null) {
+            var user = userRepository.findByEmail(userEmail);
+            if (user.isPresent()) {
+                liked = likeRepository.existsByUsuarioAndReclamo(user.get(), c);
+            }
+        }
+        dto.setLikedByUser(liked);
 
         return dto;
     }
 
-
-    //  Alternar like
     public void toggleLike(Long claimId, String email) {
         User usuario = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+
         Claim reclamo = repository.findById(claimId)
                 .orElseThrow(() -> new RuntimeException("Reclamo no encontrado"));
 
         Optional<Like> existing = likeRepository.findByUsuarioAndReclamo(usuario, reclamo);
+
         if (existing.isPresent()) {
             likeRepository.delete(existing.get());
         } else {
@@ -247,14 +258,13 @@ public class ClaimService {
         }
     }
 
-    //  Agregar comentario
     public Comment addComment(Long claimId, String text, String email) {
-        if (text == null || text.trim().isEmpty()) {
-            throw new IllegalArgumentException("El comentario no puede estar vacío");
-        }
+        if (text == null || text.trim().isEmpty())
+            throw new IllegalArgumentException("Comentario vacío");
 
         User usuario = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+
         Claim reclamo = repository.findById(claimId)
                 .orElseThrow(() -> new RuntimeException("Reclamo no encontrado"));
 
@@ -263,21 +273,17 @@ public class ClaimService {
         comment.setReclamo(reclamo);
         comment.setTexto(text.trim());
         comment.setCreatedAt(LocalDateTime.now());
-        return commentRepository.save(comment);
-    }
 
-    //  Obtener comentarios
-    public List<Comment> getComments(Long claimId) {
-        Claim reclamo = repository.findById(claimId)
-                .orElseThrow(() -> new RuntimeException("Reclamo no encontrado"));
-        return commentRepository.findByReclamoOrderByCreatedAtDesc(reclamo);
+        return commentRepository.save(comment);
     }
 
     public List<com.backend.cityfix.dto.CommentDTO> getCommentsDTO(Long claimId) {
         Claim reclamo = repository.findById(claimId)
                 .orElseThrow(() -> new RuntimeException("Reclamo no encontrado"));
 
-        return commentRepository.findByReclamoOrderByCreatedAtDesc(reclamo).stream()
+        return commentRepository
+                .findByReclamoOrderByCreatedAtDesc(reclamo)
+                .stream()
                 .map(c -> {
                     com.backend.cityfix.dto.CommentDTO dto = new com.backend.cityfix.dto.CommentDTO();
                     dto.setId(c.getId());
@@ -290,13 +296,19 @@ public class ClaimService {
                 .toList();
     }
 
-    //  Filtro avanzado para OPERADOR
     public List<Claim> filterClaims(String estado, String categoria, String sortBy, String order) {
         Sort sort = Sort.by(order.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC, sortBy);
         return repository.findByEstadoAndCategoria(estado, categoria, sort);
     }
 
+    public List<ClaimDTO> getMyClaimsDTO(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
+        List<Claim> claims = repository.findByUsuario(user);
 
-
+        return claims.stream()
+                .map(c -> toDto(c, email))
+                .collect(Collectors.toList());
+    }
 }

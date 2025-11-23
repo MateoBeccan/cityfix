@@ -108,7 +108,7 @@ public class AuthService {
     }
 
     private void createStatusIfNotExists(String name) {
-        statusRepository.findByNombre(name)
+        statusRepository.findByNombreIgnoreCase(name)
                 .orElseGet(() -> statusRepository.save(
                         com.backend.cityfix.model.Status.builder()
                                 .nombre(name)

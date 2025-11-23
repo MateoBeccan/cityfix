@@ -4,6 +4,7 @@ import com.backend.cityfix.model.*;
 import com.backend.cityfix.repository.*;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -40,6 +41,7 @@ public class LikeService {
                     Like newLike = Like.builder()
                             .usuario(user)
                             .reclamo(claim)
+                            .fechaCreacion(LocalDateTime.now())
                             .build();
                     likeRepository.save(newLike);
                     return true; // Se agregó el like

@@ -25,12 +25,20 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Token inválido o expirado → cerrar sesión
-    if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      window.location.href = '/login';
+    const status = error.response?.status;
+
+    // Ver si estamos en la pantalla de login
+    const isLoginPage = window.location.pathname === "/login";
+
+    if (status === 401 && !isLoginPage) {
+      // Si el usuario está navegando normal → cerrar sesión
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      console.warn("Sesión expirada o token inválido.");
     }
 
+    // ⚠️ NO redirigir ni refrescar en login
+    // React maneja el error y lo muestra sin refresh
     return Promise.reject(error);
   }
 );

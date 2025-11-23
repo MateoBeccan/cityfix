@@ -42,7 +42,7 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private void createStatusIfNotExists(String nombre) {
-        if (statusRepository.findByNombre(nombre).isEmpty()) {
+        if (statusRepository.findByNombreIgnoreCase(nombre).isEmpty()) {
             Status status = Status.builder()
                     .nombre(nombre)
                     .build();

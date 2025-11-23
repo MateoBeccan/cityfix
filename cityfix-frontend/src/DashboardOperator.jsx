@@ -149,6 +149,7 @@ const DashboardOperator = () => {
 
   return (
     <div className="space-y-8 bg-gradient-to-br from-blue-50 via-white to-green-50 p-6 rounded-xl shadow-sm">
+
       {/* 🏙️ Encabezado */}
       <div className="bg-white rounded-xl shadow-md border border-blue-100 p-6">
         <h1 className="text-2xl font-semibold text-blue-700 mb-2">
@@ -185,8 +186,10 @@ const DashboardOperator = () => {
         <h2 className="text-lg font-semibold text-blue-700 mb-4">
           Distribución de Reclamos por Estado
         </h2>
-        <div className="h-64">
-          <ResponsiveContainer>
+
+        {/* 🔵 FIX: Altura fija → NO más errores */}
+        <div className="h-[250px] w-full">
+          <ResponsiveContainer width="100%" height={250}>
             <PieChart>
               <Pie
                 data={chartData}
@@ -209,28 +212,12 @@ const DashboardOperator = () => {
       </div>
 
       {/* 🔍 Filtros */}
-      {/* 🔍 FILTROS MEJORADOS */}
       <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
         <h2 className="text-xl font-semibold text-blue-700 mb-6 flex items-center gap-2">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="w-6 h-6 text-blue-600"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L14 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 018 21v-7.586L3.293 6.707A1 1 0 013 6V4z"
-            />
-          </svg>
-          Filtros de búsqueda
+          🔍 Filtros de búsqueda
         </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-          {/* Filtro de Estado */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Estado
@@ -248,7 +235,6 @@ const DashboardOperator = () => {
             </select>
           </div>
 
-          {/* Filtro de Categoría */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Categoría
@@ -257,12 +243,11 @@ const DashboardOperator = () => {
               type="text"
               value={filterCategory}
               onChange={(e) => setFilterCategory(e.target.value)}
-              placeholder="Ej: Alumbrado, Basura..."
+              placeholder="Ej: Alumbrado..."
               className="border border-gray-300 rounded-md w-full p-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
 
-          {/* Filtro de Usuario */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Usuario
@@ -276,7 +261,6 @@ const DashboardOperator = () => {
             />
           </div>
 
-          {/* Filtro de Fecha Desde */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Fecha desde
@@ -289,7 +273,6 @@ const DashboardOperator = () => {
             />
           </div>
 
-          {/* Filtro de Fecha Hasta */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Fecha hasta
@@ -303,7 +286,6 @@ const DashboardOperator = () => {
           </div>
         </div>
 
-        {/* 🔘 Botones de acción */}
         <div className="flex justify-end mt-6 gap-3">
           <Button onClick={applyFilters}>Aplicar filtros</Button>
           <Button
@@ -321,7 +303,6 @@ const DashboardOperator = () => {
           </Button>
         </div>
       </div>
-
 
       {/* 🧾 Tabla */}
       <div className="bg-white rounded-xl shadow-md border border-gray-100 p-6 overflow-x-auto">
@@ -385,7 +366,7 @@ const DashboardOperator = () => {
         </table>
       </div>
 
-      {/* ✏️ Formulario cambio estado */}
+      {/* ✏️ Formulario de cambio de estado */}
       {selectedClaim && (
         <div className="bg-white rounded-xl shadow-md border border-blue-100 p-6">
           <h2 className="text-lg font-semibold text-blue-700 mb-4">

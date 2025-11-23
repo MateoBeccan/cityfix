@@ -16,6 +16,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.http.HttpMethod;
 
 import java.util.List;
 
@@ -35,61 +36,52 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                //  Deshabilitamos CSRF porque usamos JWT
                 .csrf(csrf -> csrf.disable())
-
-                //  Configuración CORS para permitir peticiones desde el frontend
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
-                //  Configuración de reglas de acceso
                 .authorizeHttpRequests(auth -> auth
-                        //  Rutas públicas (sin autenticación)
+
+                        // Rutas públicas
                         .requestMatchers(
-                                "/api/auth/**",          // login, registro, refresh token
-                                "/api/claims/feed",      // feed público
+                                "/api/auth/**",
+                                "/api/claims/feed",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
                                 "/swagger-ui.html"
                         ).permitAll()
 
-                        //  Likes y comentarios: requieren JWT válido
-                        .requestMatchers(
-                                "/api/likes/**",
-                                "/api/comments/**"
-                        ).authenticated()
+                        // --- Comentarios ---
+                        // Ver comentarios: público
+                        .requestMatchers(HttpMethod.GET, "/api/claims/*/comments").permitAll()
 
-                        //  El resto de rutas requieren autenticación y se validan por rol
+                        // Agregar comentarios: autenticados
+                        .requestMatchers(HttpMethod.POST, "/api/claims/*/comments").authenticated()
+
+                        // --- Likes ---
+                        // Dar like: autenticados
+                        // Likes (cualquier ID)
+                        .requestMatchers(HttpMethod.POST, "/api/claims/*/like").authenticated()
+
+
+
+                        // El resto requiere autenticación
                         .anyRequest().authenticated()
                 )
 
-                //  Modo stateless (sin sesiones)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-
-                //  Configuramos el proveedor de autenticación (usuarios + contraseñas)
                 .authenticationProvider(authenticationProvider())
-
-                //  Insertamos el filtro JWT antes de UsernamePasswordAuthenticationFilter
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 
-    //  Configuración CORS global (permite frontend local y encabezados JWT)
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-
-        // Orígenes permitidos (frontend local)
         config.setAllowedOriginPatterns(List.of("http://localhost:5173", "*"));
-
-        // Métodos HTTP permitidos
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-
-        // Headers permitidos y expuestos
         config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
         config.setExposedHeaders(List.of("Authorization"));
-
-        // Permitir credenciales (para axios con withCredentials)
         config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
@@ -97,7 +89,6 @@ public class SecurityConfig {
         return source;
     }
 
-    //  Proveedor de autenticación (usa tu CustomUserDetailsService)
     @Bean
     public DaoAuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
@@ -106,13 +97,11 @@ public class SecurityConfig {
         return provider;
     }
 
-    //  Encriptador de contraseñas
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
-    // ⚙ Manejador de autenticaciones
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
