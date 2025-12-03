@@ -4,19 +4,29 @@ import Footer from "./Footer";
 
 const Layout = () => {
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-50 to-gray-100">
 
-      {/* 🔥 Agrega espacio para navbar fija */}
-      <div className="pt-20">
-        <Navbar />
+      {/* NAVBAR FIXA */}
+      <Navbar />
 
-        <main className="flex-grow max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
-          <Outlet />
-        </main>
+      {/* CONTENIDO PRINCIPAL */}
+      <main
+        className="
+          flex-grow
+          max-w-7xl
+          mx-auto
+          w-full
+          px-4 sm:px-6 lg:px-8
+          pt-28        /* respiración debajo de navbar */
+          pb-16        /* espacio antes del footer */
+          animate-fadeIn
+        "
+      >
+        <Outlet />
+      </main>
 
-        <Footer />
-      </div>
-
+      {/* FOOTER */}
+      <Footer />
     </div>
   );
 };

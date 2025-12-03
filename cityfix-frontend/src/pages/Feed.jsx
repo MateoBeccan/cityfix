@@ -1,134 +1,222 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import api from "../axios";
 import { useAuth } from "../AuthContext";
 import Button from "../Button";
 import ClaimCard from "../ClaimCard";
-import logo from "../assets/logo_cityfix.png";
+import FeedSkeleton from "../components/FeedSkeleton";
+import QuickFilters from "../components/QuickFilters";
+import FloatingActionButton from "../components/FloatingActionButton";
+import { motion, AnimatePresence } from "framer-motion";
 
 const Feed = () => {
   const { user } = useAuth();
+
   const [claims, setClaims] = useState([]);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(true);
 
+  const [filters, setFilters] = useState({
+    estado: "",
+    categoria: "",
+    orden: "recientes",
+  });
+
+  const [categories, setCategories] = useState([]);
+
+  const loaderRef = useRef(null);
+
+  // =====================================================
+  // FETCH DEL FEED
+  // =====================================================
+  const fetchClaims = useCallback(async () => {
+    try {
+      const res = await api.get("/api/claims/feed", {
+        params: {
+          page,
+          estado: filters.estado,
+          categoria: filters.categoria,
+          orden: filters.orden,
+        },
+      });
+
+      const newClaims = res.data?.content || [];
+
+      setClaims((prev) => (page === 0 ? newClaims : [...prev, ...newClaims]));
+      setHasMore(!res.data?.last);
+      setLoading(false);
+    } catch (error) {
+      console.error("Error cargando reclamos:", error);
+      setLoading(false);
+    }
+  }, [page, filters]);
+
+  // Cargar categorías
+  const fetchCategories = async () => {
+    try {
+      const res = await api.get("/api/categories");
+      setCategories(res.data);
+    } catch (error) {
+      console.error("Error cargando categorías:", error);
+    }
+  };
+  
+
+
+  // Primera carga
   useEffect(() => {
-    const fetchClaims = async () => {
-      try {
-        const res = await api.get("/api/claims/feed");
-        setClaims(res.data.content || []);
-      } catch (error) {
-        console.error("Error al cargar el feed público:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchClaims();
-  }, []);
+    fetchCategories();
+  }, [fetchClaims]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 text-sm sm:text-base">
-            Cargando reclamos...
-          </p>
-        </div>
-      </div>
-    );
-  }
+  // Reset de página al cambiar filtros
+  useEffect(() => {
+    setPage(0);
+  }, [filters]);
 
+  // Scroll infinito
+  useEffect(() => {
+    if (!hasMore) return;
+
+    const obs = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) setPage((curr) => curr + 1);
+    });
+
+    if (loaderRef.current) obs.observe(loaderRef.current);
+
+    return () => {
+      if (loaderRef.current) obs.unobserve(loaderRef.current);
+    };
+  }, [hasMore]);
+
+  // =====================================================
+  // UI
+  // =====================================================
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
-
-      {/* HEADER */}
-      <div className="bg-white/80 backdrop-blur-md shadow-md border-b border-blue-100">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-10 text-center">
-
-          <div className="flex flex-col items-center mb-4">
-            <img
-              src={logo}
-              alt="CityFix Reclamos"
-              className="w-16 h-16 sm:w-20 sm:h-20 mb-3 rounded-full border-4 border-blue-500 shadow-md object-contain"
-            />
-
-            <h1 className="text-3xl sm:text-4xl font-extrabold bg-gradient-to-r from-blue-700 to-green-600 bg-clip-text text-transparent">
-              Reclamos Públicos
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      {/* HERO SECTION */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-4xl mx-auto px-4 pt-24 pb-6">
+          <motion.div
+            className="text-center"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
+              Feed de Reclamos
             </h1>
-          </div>
-
-          <p className="text-gray-600 max-w-xl mx-auto text-sm sm:text-lg">
-            Explorá los reportes y problemas urbanos compartidos por toda la comunidad.
-          </p>
-
-          {user ? (
-            <p className="mt-3 text-xs sm:text-sm text-gray-500">
-              Conectado como <span className="font-semibold text-blue-700">{user.nombre}</span>
+            <p className="text-gray-600 max-w-2xl mx-auto">
+              Descubre y participa en los problemas urbanos reportados por la comunidad
             </p>
-          ) : (
-            <div className="mt-6 flex flex-col sm:flex-row justify-center gap-3 sm:gap-4">
-              <Link to="/login">
-                <Button className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg">
-                  Iniciar Sesión
-                </Button>
-              </Link>
-
-              <Link to="/register">
-                <Button className="w-full sm:w-auto bg-green-500 hover:bg-green-600 text-white px-5 py-2.5 rounded-lg">
-                  Crear Cuenta
-                </Button>
-              </Link>
-            </div>
-          )}
+          </motion.div>
         </div>
       </div>
 
-      {/* FEED */}
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-10 space-y-8">
+      {/* QUICK FILTERS */}
+      <QuickFilters
+        filters={filters}
+        setFilters={setFilters}
+        categories={categories}
+      />
 
-        {claims.length === 0 ? (
-          <div className="bg-white/70 backdrop-blur-md rounded-2xl shadow-md p-8 sm:p-10 text-center border border-blue-100">
-            <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-blue-100 to-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-3xl sm:text-4xl text-blue-500">📭</span>
+      {/* MAIN CONTENT */}
+      <main className="max-w-4xl mx-auto px-4 py-8">
+        {/* LOADING STATE */}
+        {loading && page === 0 && (
+          <div className="space-y-6">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="bg-white rounded-xl p-6 animate-pulse">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 bg-gray-200 rounded-full"></div>
+                  <div className="flex-1">
+                    <div className="h-4 bg-gray-200 rounded w-1/3 mb-2"></div>
+                    <div className="h-3 bg-gray-200 rounded w-1/4"></div>
+                  </div>
+                </div>
+                <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
+                <div className="h-4 bg-gray-200 rounded w-2/3 mb-4"></div>
+                <div className="h-48 bg-gray-200 rounded-lg"></div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* EMPTY STATE */}
+        {!loading && claims.length === 0 && (
+          <motion.div
+            className="bg-white rounded-xl p-12 text-center shadow-sm border border-gray-200"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+          >
+            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
             </div>
-            <h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">
-              No hay reclamos aún
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              No hay reclamos que mostrar
             </h3>
-            <p className="text-gray-500 text-sm sm:text-base mb-6">
-              Sé el primero en reportar un problema en tu ciudad.
+            <p className="text-gray-600 mb-6 max-w-md mx-auto">
+              Sé el primero en reportar un problema en tu comunidad y ayuda a mejorar tu ciudad.
             </p>
-
             <Link to={user ? "/claims/new" : "/login"}>
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg shadow">
-                {user ? "Crear Reclamo" : "Iniciar Sesión"}
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg shadow-lg hover:shadow-xl transition-all">
+                {user ? "📝 Crear Reclamo" : "🔑 Iniciar Sesión"}
               </Button>
             </Link>
-          </div>
-        ) : (
-          <>
-            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 border-b border-blue-200 pb-2">
-              Últimos reclamos reportados
-            </h2>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {claims.map((claim) => (
-                <div
-                  key={claim.id}
-                  className="bg-white rounded-xl shadow-soft hover:shadow-lg transition-all border border-blue-100 p-4 sm:p-5"
-                >
-                  <ClaimCard claim={claim} />
-                </div>
-              ))}
-            </div>
-          </>
+          </motion.div>
         )}
-      </main>
 
-      {/* FOOTER */}
-      <footer className="mt-10 py-6 text-center text-xs sm:text-sm text-gray-500 border-t border-blue-100">
-        🏙️ CityFix © 2025 — Conectando ciudadanos con soluciones urbanas.
-      </footer>
+        {/* CLAIMS FEED */}
+        <div className="space-y-6">
+          <AnimatePresence>
+            {claims.map((claim, i) => (
+              <motion.div
+                key={claim.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ delay: i * 0.1 }}
+              >
+                <ClaimCard claim={claim} />
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+
+        {/* INFINITE SCROLL LOADER */}
+        <div ref={loaderRef} className="py-8 flex items-center justify-center">
+          {hasMore && !loading && (
+            <motion.div 
+              className="flex items-center gap-3 text-gray-500"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+            >
+              <div className="w-6 h-6 rounded-full border-2 border-gray-300 border-t-blue-600 animate-spin"></div>
+              <span className="text-sm font-medium">Cargando más reclamos...</span>
+            </motion.div>
+          )}
+          {!hasMore && claims.length > 0 && (
+            <motion.div 
+              className="text-center py-8"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+            >
+              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <p className="text-gray-600 font-medium">Has visto todos los reclamos</p>
+              <p className="text-sm text-gray-500 mt-1">Vuelve más tarde para ver nuevos reportes</p>
+            </motion.div>
+          )}
+        </div>
+      </main>
+      
+      {/* FLOATING ACTION BUTTON */}
+      <FloatingActionButton />
     </div>
   );
 };

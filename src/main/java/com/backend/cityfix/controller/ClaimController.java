@@ -2,10 +2,12 @@ package com.backend.cityfix.controller;
 
 import com.backend.cityfix.dto.ClaimDTO;
 import com.backend.cityfix.dto.ClaimRequestDTO;
+import com.backend.cityfix.dto.CommentDTO;
 import com.backend.cityfix.dto.StatusUpdateRequest;
 import com.backend.cityfix.model.Claim;
 import com.backend.cityfix.model.ClaimHistory;
 import com.backend.cityfix.service.ClaimService;
+import com.backend.cityfix.service.CommentService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
@@ -18,30 +20,44 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/claims")
-@CrossOrigin(origins = "*")
+@CrossOrigin("*")
 public class ClaimController {
 
     private final ClaimService claimService;
+    private final CommentService commentService;
 
-    public ClaimController(ClaimService claimService) {
+    public ClaimController(ClaimService claimService, CommentService commentService) {
         this.claimService = claimService;
+        this.commentService = commentService;
     }
 
+
+    // ----------------------------------------------------------
+    // 📌 Crear reclamo
+    // ----------------------------------------------------------
     @PostMapping
     @PreAuthorize("hasRole('CIUDADANO')")
     public ResponseEntity<Claim> createClaim(
             @Valid @RequestBody ClaimRequestDTO dto,
             Authentication auth) {
 
-        return ResponseEntity.ok(claimService.createForUser(dto, auth.getName()));
+        return ResponseEntity.ok(
+                claimService.createForUser(dto, auth.getName())
+        );
     }
 
+    // ----------------------------------------------------------
+    // 📌 Mis reclamos
+    // ----------------------------------------------------------
     @GetMapping("/my-claims")
     @PreAuthorize("hasRole('CIUDADANO')")
     public ResponseEntity<List<ClaimDTO>> getMyClaims(Authentication auth) {
         return ResponseEntity.ok(claimService.getMyClaimsDTO(auth.getName()));
     }
 
+    // ----------------------------------------------------------
+    // ❌ Eliminar reclamo
+    // ----------------------------------------------------------
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('CIUDADANO') and @claimService.isOwner(#id, authentication.name)")
     public ResponseEntity<Void> deleteClaim(@PathVariable Long id) {
@@ -49,6 +65,9 @@ public class ClaimController {
         return ResponseEntity.ok().build();
     }
 
+    // ----------------------------------------------------------
+    // 📌 Obtener reclamos (operador/admin)
+    // ----------------------------------------------------------
     @GetMapping
     @PreAuthorize("hasAnyRole('OPERADOR','ADMIN')")
     public ResponseEntity<List<Claim>> getAllClaims() {
@@ -63,6 +82,9 @@ public class ClaimController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    // ----------------------------------------------------------
+    // 🔄 Cambiar estado
+    // ----------------------------------------------------------
     @PutMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('OPERADOR','ADMIN')")
     public ResponseEntity<Claim> updateClaimStatus(
@@ -80,6 +102,9 @@ public class ClaimController {
         );
     }
 
+    // ----------------------------------------------------------
+    // ✏ Editar reclamo
+    // ----------------------------------------------------------
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN') or (hasRole('CIUDADANO') and @claimService.isOwner(#id, authentication.name))")
     public ResponseEntity<Claim> updateClaim(
@@ -87,25 +112,61 @@ public class ClaimController {
             @Valid @RequestBody Claim claim,
             Authentication auth) {
 
-        return ResponseEntity.ok(claimService.updateClaim(id, claim, auth.getName()));
+        return ResponseEntity.ok(
+                claimService.updateClaim(id, claim, auth.getName())
+        );
     }
 
+    // ----------------------------------------------------------
+// 🗑 Eliminar reclamo (ADMIN)
+// ----------------------------------------------------------
+    @DeleteMapping("/admin/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> deleteClaimAsAdmin(@PathVariable Long id) {
+        claimService.delete(id); // Usa tu delete actual
+        return ResponseEntity.ok().build();
+    }
+
+    // ----------------------------------------------------------
+// 🗑 Eliminar reclamo (OPERADOR)
+// ----------------------------------------------------------
+    @DeleteMapping("/operator/{id}")
+    @PreAuthorize("hasRole('OPERADOR')")
+    public ResponseEntity<Void> deleteClaimAsOperator(@PathVariable Long id) {
+        claimService.delete(id);
+        return ResponseEntity.ok().build();
+    }
+
+
+
+    // ----------------------------------------------------------
+    // 📜 Historial
+    // ----------------------------------------------------------
     @GetMapping("/{id}/history")
     @PreAuthorize("hasAnyRole('OPERADOR','ADMIN') or (hasRole('CIUDADANO') and @claimService.isOwner(#id, authentication.name))")
     public ResponseEntity<List<ClaimHistory>> getClaimHistory(@PathVariable Long id) {
         return ResponseEntity.ok(claimService.getClaimHistory(id));
     }
 
+    // ----------------------------------------------------------
+    // 📰 Feed público
+    // ----------------------------------------------------------
     @GetMapping("/feed")
     public Page<ClaimDTO> feed(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String estado,
+            @RequestParam(required = false) String categoria,
+            @RequestParam(defaultValue = "recientes") String orden,
             Authentication auth) {
 
         String email = (auth != null) ? auth.getName() : null;
-        return claimService.getFeed(page, size, email);
+        return claimService.getFeedWithFilters(page, size, estado, categoria, orden, email);
     }
 
+    // ----------------------------------------------------------
+    // ❤️ Like
+    // ----------------------------------------------------------
     @PostMapping("/{id}/like")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Void> toggleLike(@PathVariable Long id, Authentication auth) {
@@ -113,29 +174,9 @@ public class ClaimController {
         return ResponseEntity.ok().build();
     }
 
-    @PostMapping("/{id}/comments")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<com.backend.cityfix.dto.CommentDTO> addComment(
-            @PathVariable Long id,
-            @RequestBody Map<String, String> body,
-            Authentication auth) {
-
-        var comment = claimService.addComment(id, body.get("text"), auth.getName());
-        var dto = new com.backend.cityfix.dto.CommentDTO();
-        dto.setId(comment.getId());
-        dto.setTexto(comment.getTexto());
-        dto.setFechaCreacion(comment.getCreatedAt());
-        dto.setUsuarioId(comment.getUsuario().getId());
-        dto.setUsuarioNombre(comment.getUsuario().getNombre());
-
-        return ResponseEntity.ok(dto);
-    }
-
-    @GetMapping("/{id}/comments")
-    public ResponseEntity<List<com.backend.cityfix.dto.CommentDTO>> getComments(@PathVariable Long id) {
-        return ResponseEntity.ok(claimService.getCommentsDTO(id));
-    }
-
+    // ----------------------------------------------------------
+    // 🔍 Filtros (OPERADOR)
+    // ----------------------------------------------------------
     @GetMapping("/filter")
     @PreAuthorize("hasRole('OPERADOR')")
     public ResponseEntity<List<Claim>> filterClaims(
@@ -144,6 +185,40 @@ public class ClaimController {
             @RequestParam(defaultValue = "fechaCreacion") String sortBy,
             @RequestParam(defaultValue = "desc") String order) {
 
-        return ResponseEntity.ok(claimService.filterClaims(estado, categoria, sortBy, order));
+        return ResponseEntity.ok(
+                claimService.filterClaims(estado, categoria, sortBy, order)
+        );
     }
+    @GetMapping("/{id}/comments")
+    public ResponseEntity<List<CommentDTO>> getCommentsFromClaim(@PathVariable Long id) {
+        return ResponseEntity.ok(commentService.getCommentsDTO(id));
+    }
+    @PostMapping("/{id}/comments")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<CommentDTO> addComment(
+            @PathVariable Long id,
+            @Valid @RequestBody com.backend.cityfix.dto.CommentRequestDTO dto,
+            Authentication auth
+    ) {
+        var comment = commentService.addComment(id, auth.getName(), dto.getTexto());
+
+        CommentDTO response = new CommentDTO();
+        response.setId(comment.getId());
+        response.setTexto(comment.getTexto());
+        response.setFechaCreacion(comment.getCreatedAt());
+        response.setUsuarioId(comment.getUsuario().getId());
+        response.setUsuarioNombre(comment.getUsuario().getNombre());
+
+        return ResponseEntity.ok(response);
+    }
+    
+    // ----------------------------------------------------------
+    // 📊 Estadísticas del feed
+    // ----------------------------------------------------------
+    @GetMapping("/feed/stats")
+    public ResponseEntity<Map<String, Long>> getFeedStats() {
+        return ResponseEntity.ok(claimService.getFeedStats());
+    }
+
+
 }

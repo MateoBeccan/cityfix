@@ -21,6 +21,15 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
                                          @org.springframework.lang.Nullable String categoria,
                                          org.springframework.data.domain.Sort sort);
 
+    @Query("""
+        SELECT c FROM Claim c
+        WHERE (:estado IS NULL OR :estado = '' OR LOWER(c.estado.nombre) = LOWER(:estado))
+        AND (:categoria IS NULL OR :categoria = '' OR LOWER(c.categoria.nombre) = LOWER(:categoria))
+        """)
+    Page<Claim> findByEstadoAndCategoria(@org.springframework.lang.Nullable String estado,
+                                         @org.springframework.lang.Nullable String categoria,
+                                         Pageable pageable);
+
 
 
 }

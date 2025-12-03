@@ -23,52 +23,66 @@ public class JwtService {
 
     public JwtService(
             @Value("${jwt.secret}") String secret,
-            @Value("${jwt.expiration-ms:86400000}") long expirationMs // 24h por defecto
+            @Value("${jwt.expiration-ms:86400000}") long expirationMs
     ) {
         this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.expirationMs = expirationMs;
     }
 
-    //  Generar token con email y rol del usuario
+    // ============================================================
+    // 🚀 GENERAR TOKEN COMPLETO (id, email, nombre, rol)
+    // ============================================================
     public String generateToken(User user) {
         Map<String, Object> claims = new HashMap<>();
-        claims.put("role", "ROLE_" + user.getRole().getNombre());
+
+        claims.put("id", user.getId());
         claims.put("email", user.getEmail());
+        claims.put("nombre", user.getNombre());
+        claims.put("role", "ROLE_" + user.getRole().getNombre());
+
         return buildToken(claims, user.getEmail());
     }
 
-    //  Método de compatibilidad si se usa UserDetails
+    // Compatibilidad con UserDetails
     public String generateToken(UserDetails userDetails) {
         return buildToken(new HashMap<>(), userDetails.getUsername());
     }
 
-    //  Método central para construir token
     private String buildToken(Map<String, Object> claims, String subject) {
         return Jwts.builder()
-                .setClaims(claims)
-                .setSubject(subject)
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + expirationMs))
-                .signWith(secretKey, SignatureAlgorithm.HS256)
+                .claims(claims)
+                .subject(subject)
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + expirationMs))
+                .signWith(secretKey)
                 .compact();
     }
 
-    //  Extraer email (subject)
+    // ============================================================
+    // EXTRACCIÓN DE DATOS DEL TOKEN
+    // ============================================================
     public String extractUsername(String token) {
         return extractAllClaims(token).getSubject();
     }
 
-    //  Extraer rol del JWT
     public String extractRole(String token) {
         return extractAllClaims(token).get("role", String.class);
     }
 
+    public Long extractUserId(String token) {
+        return extractAllClaims(token).get("id", Long.class);
+    }
+
+    public String extractNombre(String token) {
+        return extractAllClaims(token).get("nombre", String.class);
+    }
+
     private Claims extractAllClaims(String token) {
-        return Jwts.parserBuilder()
-                .setSigningKey(secretKey)
+        return Jwts.parser()
+                .verifyWith(secretKey)
                 .build()
-                .parseClaimsJws(token)
-                .getBody();
+                .parseSignedClaims(token)
+                .getPayload();
     }
 
     public boolean isTokenValid(String token, UserDetails userDetails) {

@@ -1,9 +1,13 @@
 package com.backend.cityfix.controller;
 
+import com.backend.cityfix.dto.NotificationDTO;
 import com.backend.cityfix.model.Notification;
 import com.backend.cityfix.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -22,17 +26,30 @@ public class NotificationController {
 
     /** 📌 Obtener todas las notificaciones del usuario */
     @GetMapping
-    public ResponseEntity<List<Notification>> getNotifications(
+    public ResponseEntity<List<NotificationDTO>> getNotifications(
             @AuthenticationPrincipal UserDetails user) {
 
         return ResponseEntity.ok(
                 notificationService.getNotifications(user.getUsername())
         );
     }
+    
+    /** 📌 Obtener notificaciones paginadas */
+    @GetMapping("/paged")
+    public ResponseEntity<Page<NotificationDTO>> getNotificationsPaged(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @AuthenticationPrincipal UserDetails user) {
+
+        Pageable pageable = PageRequest.of(page, size);
+        return ResponseEntity.ok(
+                notificationService.getNotificationsPaged(user.getUsername(), pageable)
+        );
+    }
 
     /** 📌 Obtener solo no leídas */
     @GetMapping("/unread")
-    public ResponseEntity<List<Notification>> getUnread(
+    public ResponseEntity<List<NotificationDTO>> getUnread(
             @AuthenticationPrincipal UserDetails user) {
 
         return ResponseEntity.ok(

@@ -17,7 +17,7 @@ public class Notification {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Título resumido (ej: "Estado actualizado", "Nuevo comentario")
+    // Título resumido
     @Column(nullable = false)
     private String titulo;
 
@@ -26,15 +26,16 @@ public class Notification {
     private String mensaje;
 
     // Tipo: estado, comentario, sistema
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String tipo;
+    private NotificationType tipo;
 
     @ManyToOne
     @JoinColumn(name = "usuario_id", nullable = false)
     private User usuario;
 
     @ManyToOne
-    @JoinColumn(name = "reclamo_id", nullable = true)
+    @JoinColumn(name = "reclamo_id")
     private Claim reclamo;
 
     @Column(nullable = false)

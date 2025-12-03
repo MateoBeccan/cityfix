@@ -1,12 +1,17 @@
 package com.backend.cityfix.service;
 
+import com.backend.cityfix.dto.NotificationDTO;
 import com.backend.cityfix.model.*;
 import com.backend.cityfix.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -28,14 +33,16 @@ public class NotificationService {
         Notification notification = Notification.builder()
                 .usuario(user)
                 .reclamo(claim)
+                .titulo("Notificación")
+                .tipo(NotificationType.SISTEMA)
                 .mensaje(mensaje)
                 .leido(false)
                 .fecha(LocalDateTime.now())
                 .build();
 
-
         notificationRepository.save(notification);
     }
+
 
 
 
@@ -47,19 +54,39 @@ public class NotificationService {
                 .reclamo(claim)
                 .titulo("Nuevo comentario")
                 .mensaje(user.getNombre() + " comentó: " + comentario)
-                .tipo("comentario")
+                .tipo(NotificationType.COMENTARIO)
+                .fecha(LocalDateTime.now())
+                .leido(false)
                 .build();
 
         notificationRepository.save(n);
     }
 
 
-    // Listado de notificaciones
-    public List<Notification> getNotifications(String email) {
+
+    // Listado de notificaciones con DTO
+    public List<NotificationDTO> getNotifications(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
-        return notificationRepository.findByUsuarioOrderByFechaDesc(user);
+        return notificationRepository.findByUsuarioOrderByFechaDesc(user)
+                .stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
+    }
+
+    // Listado paginado
+    public Page<NotificationDTO> getNotificationsPaged(String email, Pageable pageable) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+
+        Page<Notification> notifications = notificationRepository.findByUsuarioOrderByFechaDesc(user, pageable);
+        
+        return new PageImpl<>(
+                notifications.stream().map(this::toDTO).collect(Collectors.toList()),
+                pageable,
+                notifications.getTotalElements()
+        );
     }
 
     // Conteo de no leídas
@@ -84,16 +111,22 @@ public class NotificationService {
                 .reclamo(claim)
                 .titulo("Estado actualizado")
                 .mensaje("Tu reclamo #" + claim.getId() + " cambió a " + nuevoEstado)
-                .tipo("estado")
+                .tipo(NotificationType.ESTADO)
+                .fecha(LocalDateTime.now())
+                .leido(false)
                 .build();
 
         notificationRepository.save(n);
     }
 
-    public List<Notification> getUnreadNotifications(String email) {
+
+    public List<NotificationDTO> getUnreadNotifications(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
-        return notificationRepository.findByUsuarioAndLeidoFalseOrderByFechaDesc(user);
+        return notificationRepository.findByUsuarioAndLeidoFalseOrderByFechaDesc(user)
+                .stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
     }
 
     public Notification getNotification(Long id, String email) {
@@ -118,5 +151,42 @@ public class NotificationService {
         notificationRepository.deleteByUsuario(user);
     }
 
+    // Eliminar notificaciones antiguas (más de 30 días)
+    public void cleanOldNotifications() {
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(30);
+        notificationRepository.deleteByFechaBefore(cutoff);
+    }
+
+    // Notificar nuevo like
+    public void notifyNewLike(User liker, Claim claim) {
+        // No notificar si el usuario se da like a sí mismo
+        if (liker.getId().equals(claim.getUsuario().getId())) return;
+
+        Notification n = Notification.builder()
+                .usuario(claim.getUsuario())
+                .reclamo(claim)
+                .titulo("Nuevo like")
+                .mensaje(liker.getNombre() + " le dio like a tu reclamo: " + claim.getTitulo())
+                .tipo(NotificationType.SISTEMA)
+                .fecha(LocalDateTime.now())
+                .leido(false)
+                .build();
+
+        notificationRepository.save(n);
+    }
+
+    // Convertir a DTO
+    private NotificationDTO toDTO(Notification n) {
+        return NotificationDTO.builder()
+                .id(n.getId())
+                .titulo(n.getTitulo())
+                .mensaje(n.getMensaje())
+                .tipo(n.getTipo())
+                .leido(n.isLeido())
+                .fecha(n.getFecha())
+                .reclamoId(n.getReclamo() != null ? n.getReclamo().getId() : null)
+                .reclamoTitulo(n.getReclamo() != null ? n.getReclamo().getTitulo() : null)
+                .build();
+    }
 
 }

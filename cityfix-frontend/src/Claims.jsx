@@ -35,20 +35,41 @@ const Claims = () => {
     }
   };
 
+  // ----------------------------------------------
+  // 🔥 FUNCIÓN DE NORMALIZACIÓN ULTRA SEGURA
+  // ----------------------------------------------
+  const normalize = (v) =>
+    (v ?? "")
+      .trim()
+      .normalize("NFD")                 // separa letras de tildes
+      .replace(/[\u0300-\u036f]/g, "") // elimina tildes
+      .toLowerCase();                  // pasa a minúsculas
+
+  // ----------------------------------------------
+  // 🔥 FILTRO SEGURO
+  // ----------------------------------------------
   const filteredClaims = claims.filter(claim => {
     if (filter === 'all') return true;
-    return claim.estado?.nombre.toLowerCase() === filter;
+
+    const estado = normalize(claim.estado?.nombre);
+    return estado === normalize(filter);
   });
 
+  // ----------------------------------------------
+  // 🔥 CONTADORES SEGUROS
+  // ----------------------------------------------
   const getFilterCounts = () => ({
     all: claims.length,
-    pendiente: claims.filter(c => c.estado?.nombre === 'Pendiente').length,
-    'en proceso': claims.filter(c => c.estado?.nombre === 'En Proceso').length,
-    resuelto: claims.filter(c => c.estado?.nombre === 'Resuelto').length
+    pendiente: claims.filter(c => normalize(c.estado?.nombre) === "pendiente").length,
+    "en proceso": claims.filter(c => normalize(c.estado?.nombre) === "en proceso").length,
+    resuelto: claims.filter(c => normalize(c.estado?.nombre) === "resuelto").length
   });
 
   const counts = getFilterCounts();
 
+  // ----------------------------------------------
+  // LOADING
+  // ----------------------------------------------
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -59,7 +80,8 @@ const Claims = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+
+      {/* HEADER */}
       <div className="bg-white rounded-xl shadow-sm p-4 md:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -72,7 +94,7 @@ const Claims = () => {
         </div>
       </div>
 
-      {/* Filters */}
+      {/* FILTERS */}
       <div className="bg-white rounded-xl shadow-sm p-4">
         <div className="flex flex-wrap gap-2">
           {[
@@ -80,28 +102,32 @@ const Claims = () => {
             { key: 'pendiente', label: 'Pendientes', count: counts.pendiente },
             { key: 'en proceso', label: 'En Proceso', count: counts['en proceso'] },
             { key: 'resuelto', label: 'Resueltos', count: counts.resuelto }
-          ].map((filterItem) => (
+          ].map((f) => (
             <button
-              key={filterItem.key}
-              onClick={() => setFilter(filterItem.key)}
+              key={f.key}
+              onClick={() => setFilter(f.key)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                filter === filterItem.key
+                filter === f.key
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              {filterItem.label} ({filterItem.count})
+              {f.label} ({f.count})
             </button>
           ))}
         </div>
       </div>
 
-      {/* Claims Grid */}
+      {/* CLAIMS GRID */}
       {filteredClaims.length === 0 ? (
         <div className="bg-white rounded-xl shadow-sm">
           <EmptyState
             title="No hay reclamos"
-            description={filter === 'all' ? 'Aún no has creado ningún reclamo.' : `No tienes reclamos ${filter}.`}
+            description={
+              filter === 'all'
+                ? 'Aún no has creado ningún reclamo.'
+                : `No tienes reclamos ${filter}.`
+            }
             action={
               <Link to="/claims/new">
                 <Button>Crear Reclamo</Button>

@@ -45,6 +45,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/auth/**",
                                 "/api/claims/feed",
+                                "/api/claims/feed/stats",
+                                "/api/stats/**",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
                                 "/swagger-ui.html"
@@ -56,12 +58,20 @@ public class SecurityConfig {
 
                         // Agregar comentarios: autenticados
                         .requestMatchers(HttpMethod.POST, "/api/claims/*/comments").authenticated()
+                        // --- Comentarios ---
+                        .requestMatchers(HttpMethod.GET, "/api/claims/*/comments").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/claims/*/comments").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/comments/*").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/comments/*").authenticated()
+
 
                         // --- Likes ---
                         // Dar like: autenticados
                         // Likes (cualquier ID)
                         .requestMatchers(HttpMethod.POST, "/api/claims/*/like").authenticated()
 
+                        // --- Notificaciones ---
+                        .requestMatchers("/api/notifications/**").authenticated()
 
 
                         // El resto requiere autenticación
@@ -78,9 +88,9 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(List.of("http://localhost:5173", "*"));
+        config.setAllowedOriginPatterns(List.of("http://localhost:5173", "http://localhost:3000"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With"));
         config.setExposedHeaders(List.of("Authorization"));
         config.setAllowCredentials(true);
 

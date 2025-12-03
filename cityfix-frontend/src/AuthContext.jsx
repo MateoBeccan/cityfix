@@ -19,37 +19,32 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem("token"));
   const [loading, setLoading] = useState(true);
 
-  // 🔹 Actualizar datos del usuario (editar perfil)
+  // 🔹 Guardar usuario actualizado
   const updateUserData = (newData) => {
     setUser(newData);
     localStorage.setItem("user", JSON.stringify(newData));
   };
 
-  // 🔹 Restaurar sesión desde token
+  // ============================================================
+  // 🔥 RESTAURAR SESIÓN DESDE JWT COMPLETO
+  // ============================================================
   useEffect(() => {
     if (token) {
       try {
         const decoded = jwtDecode(token);
 
-        const role =
-          decoded.role?.replace("ROLE_", "") ||
-          decoded.authorities?.[0]?.replace("ROLE_", "") ||
-          "CIUDADANO";
-
-        const email = decoded.email || decoded.sub;
-
-        const restoredUser = {
-          id: decoded.id || decoded.userId || null,
-          email,
-          nombre: email.split("@")[0],
-          role,
+        // Los datos ya vienen directamente del backend
+        const newUser = {
+          id: decoded.id,
+          email: decoded.email || decoded.sub,
+          nombre: decoded.nombre || decoded.email?.split("@")[0],
+          role: decoded.role?.replace("ROLE_", "") ?? "CIUDADANO",
         };
 
-        setUser(restoredUser);
-        localStorage.setItem("user", JSON.stringify(restoredUser));
+        setUser(newUser);
+        localStorage.setItem("user", JSON.stringify(newUser));
 
         api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-
       } catch (error) {
         console.warn("Error decoding token:", error);
         logout();
@@ -59,30 +54,24 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, [token]);
 
-  // 🔹 LOGIN actualizado
+  // ============================================================
+  // 🔹 LOGIN
+  // ============================================================
   const login = async (email, password) => {
     try {
       const res = await api.post("/api/auth/login", { email, password });
       const newToken = res.data.token;
 
-      // Guardar token
       setToken(newToken);
       localStorage.setItem("token", newToken);
 
       const decoded = jwtDecode(newToken);
 
-      const role =
-        decoded.role?.replace("ROLE_", "") ||
-        decoded.authorities?.[0]?.replace("ROLE_", "") ||
-        "CIUDADANO";
-
-      const userEmail = decoded.email || decoded.sub;
-
       const newUser = {
-        id: decoded.id || decoded.userId || null,
-        email: userEmail,
-        nombre: userEmail.split("@")[0],
-        role,
+        id: decoded.id,
+        email: decoded.email || decoded.sub,
+        nombre: decoded.nombre || decoded.email?.split("@")[0],
+        role: decoded.role?.replace("ROLE_", "") ?? "CIUDADANO",
       };
 
       setUser(newUser);
@@ -91,10 +80,7 @@ export const AuthProvider = ({ children }) => {
       api.defaults.headers.common["Authorization"] = `Bearer ${newToken}`;
 
       return { success: true };
-
     } catch (error) {
-
-      // 🔥 ERROR 401 → credenciales incorrectas, usuario no existe, desactivado, etc.
       if (error.response?.status === 401) {
         const backendError = error.response.data?.error?.toLowerCase() || "";
 
@@ -110,23 +96,13 @@ export const AuthProvider = ({ children }) => {
         return { success: false, error: "invalid_credentials" };
       }
 
-      // 🔥 Error genérico de backend
-      if (error.response?.data?.error) {
-        return {
-          success: false,
-          error: error.response.data.error,
-        };
-      }
-
-      // 🔥 Error de red
-      return {
-        success: false,
-        error: "network_error",
-      };
+      return { success: false, error: "network_error" };
     }
   };
 
+  // ============================================================
   // 🔹 LOGOUT
+  // ============================================================
   const logout = () => {
     setToken(null);
     setUser(null);
