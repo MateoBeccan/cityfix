@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "./axios";
 import { jwtDecode } from "jwt-decode";
 
@@ -103,12 +104,17 @@ export const AuthProvider = ({ children }) => {
   // ============================================================
   // 🔹 LOGOUT
   // ============================================================
-  const logout = () => {
+  const logout = (redirectTo = "/") => {
     setToken(null);
     setUser(null);
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     delete api.defaults.headers.common["Authorization"];
+    
+    // Redirigir después de limpiar el estado
+    setTimeout(() => {
+      window.location.href = redirectTo;
+    }, 100);
   };
 
   return (

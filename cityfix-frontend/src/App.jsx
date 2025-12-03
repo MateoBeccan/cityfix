@@ -62,8 +62,8 @@ function App() {
       <Routes>
         {/* 🌐 RUTAS PÚBLICAS (sin navbar) */}
         <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <LoginPage />} />
+        <Route path="/register" element={user ? <Navigate to="/dashboard" /> : <RegisterPage />} />
 
         {/* 🌇 RUTAS CON NAVBAR (Layout) */}
         <Route element={<Layout />}>
@@ -95,8 +95,8 @@ function App() {
               <Route path="/admin/categories" element={<AdminCategories />} />
               <Route path="/admin/statuses" element={<AdminStatuses />} />
 
-              {/* Si está logueado e intenta ir a "/" */}
-              <Route path="/" element={<Navigate to="/dashboard" />} />
+              {/* Ruta catch-all para usuarios logueados */}
+              <Route path="*" element={<Navigate to="/dashboard" />} />
             </>
           ) : (
             // Si no está logueado → login

@@ -43,7 +43,7 @@ const RegisterPage = () => {
         password: formData.password
       });
       setSuccess(true);
-      setTimeout(() => navigate('/login'), 2000);
+      setTimeout(() => navigate('/login'), 1500);
     } catch (error) {
       setError(error.response?.data?.message || 'Error al registrar usuario');
     } finally {

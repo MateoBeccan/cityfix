@@ -41,7 +41,10 @@ const LoginPage = () => {
       const result = await login(email, password);
 
       if (result.success) {
-        navigate('/dashboard');
+        // Redirigir al dashboard después del login exitoso
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 100);
         return;
       }
 

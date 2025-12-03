@@ -46,8 +46,7 @@ const Navbar = () => {
 
   // Logout
   const handleLogout = () => {
-    logout();
-    navigate("/login");
+    logout("/"); // Redirige a landing page
   };
 
   // Cerrar dropdowns si se hace click afuera
