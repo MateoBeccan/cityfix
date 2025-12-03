@@ -100,12 +100,6 @@ GET	/swagger-ui.html	Documentación API interactiva
 
 🔄 Corrección de navegación — eliminación de doble barra en vistas internas
 
-📖 Documentación Swagger
-
-La API está documentada con Swagger UI.
-Podés acceder desde tu navegador en:
-
-🔗 http://localhost:8080/swagger-ui.html
 
 👨‍💻 Autor
 
